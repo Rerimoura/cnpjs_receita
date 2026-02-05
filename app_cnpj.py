@@ -10,19 +10,12 @@ SITUACAO_MAP = {
     '08': 'Baixada', '8': 'Baixada'
 }
 
-@st.cache_data
-def load_data():
-    part1 = pd.read_parquet('estabelecimentos_mg_part1.parquet')
-    part2 = pd.read_parquet('estabelecimentos_mg_part2.parquet')
-    df = pd.concat([part1, part2], ignore_index=True)
-    # Convert CNPJ back to string with leading zeros
-    # Keep CNPJ as int64 for memory optimization
-    # df['CNPJ'] = df['CNPJ'].astype(str).str.zfill(14) <-- REMOVED
-    return df
+import duckdb
+
+# ... (Status mapping remains) ...
 
 @st.cache_data
 def load_municipios():
-    import shutil
     import os
     import subprocess
     
@@ -69,12 +62,10 @@ def load_municipios():
 st.set_page_config(page_title="Consulta CNPJ - MG", layout="wide")
 
 st.title("Consulta CNPJ - Minas Gerais")
-st.markdown("Busque por estabelecimentos ativos em MG utilizando o CNPJ. OBSERVAÇÃO: A consulta pode levar alguns segundos para retornar o resultado.")
+st.markdown("Busque por estabelecimentos ativos em MG utilizando o CNPJ.")
 
-# Load data
-with st.spinner('Carregando base de dados...'):
-    df = load_data()
-    mun_dict, mun_status = load_municipios()
+# Load only auxiliary data
+mun_dict, mun_status = load_municipios()
 
 if mun_status:
     type_, msg = mun_status
@@ -93,18 +84,31 @@ cnpj_input = st.text_input("Digite o CNPJ (apenas números):", max_chars=14, key
 
 col_btn1, col_btn2 = st.columns([1, 4])
 with col_btn1:
-    st.button("Consultar")
+    search_clicked = st.button("Consultar")
 with col_btn2:
     st.button("Limpar Nova Busca", on_click=clear_search)
 
-if cnpj_input:
-    # Filter by CNPJ
+if search_clicked and cnpj_input:
+    # Query using DuckDB
     try:
-        # Convert input to int for memory-efficient comparison
+        # Convert input to int for comparison
         search_cnpj = int(cnpj_input)
-        result = df[df['CNPJ'] == search_cnpj]
+        
+        # Query both parquet parts using wildcard
+        query = f"SELECT * FROM 'estabelecimentos_mg_part*.parquet' WHERE CNPJ = {search_cnpj}"
+        
+        with st.spinner('Consultando base de dados...'):
+            # execute query and fetch as dataframe
+            con = duckdb.connect(database=':memory:')
+            result = con.execute(query).df()
+            con.close()
+            
     except ValueError:
-        result = pd.DataFrame() # Return empty if not a number
+        st.warning("Por favor, digite apenas números válidos.")
+        result = pd.DataFrame()
+    except Exception as e:
+        st.error(f"Erro na consulta: {e}")
+        result = pd.DataFrame()
     
     if not result.empty:
         item = result.iloc[0]
