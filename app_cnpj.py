@@ -16,7 +16,8 @@ def load_data():
     part2 = pd.read_parquet('estabelecimentos_mg_part2.parquet')
     df = pd.concat([part1, part2], ignore_index=True)
     # Convert CNPJ back to string with leading zeros
-    df['CNPJ'] = df['CNPJ'].astype(str).str.zfill(14)
+    # Keep CNPJ as int64 for memory optimization
+    # df['CNPJ'] = df['CNPJ'].astype(str).str.zfill(14) <-- REMOVED
     return df
 
 @st.cache_data
@@ -98,7 +99,12 @@ with col_btn2:
 
 if cnpj_input:
     # Filter by CNPJ
-    result = df[df['CNPJ'] == cnpj_input]
+    try:
+        # Convert input to int for memory-efficient comparison
+        search_cnpj = int(cnpj_input)
+        result = df[df['CNPJ'] == search_cnpj]
+    except ValueError:
+        result = pd.DataFrame() # Return empty if not a number
     
     if not result.empty:
         item = result.iloc[0]
