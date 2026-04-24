@@ -116,6 +116,13 @@ if search_clicked and cnpj_input:
         st.success("CNPJ Encontrado!")
         st.markdown("---")
         
+        # Display Company
+        st.subheader("🏢 Empresa")
+        razao_social = item['razao_social'] if 'razao_social' in item else "Não Informado"
+        st.metric("Razão Social", razao_social)
+        
+        st.markdown("---")
+        
         # Display Address
         st.subheader("📍 Endereço")
         col1, col2 = st.columns(2)
