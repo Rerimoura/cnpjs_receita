@@ -3,3 +3,5 @@ pandas
 pyarrow
 openpyxl
 duckdb
+psycopg2-binary
+python-dotenv

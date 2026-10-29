@@ -12,6 +12,8 @@ SITUACAO_MAP = {
 
 import duckdb
 
+from db_clientes import buscar_codigo_cliente
+
 # ... (Status mapping remains) ...
 
 @st.cache_data
@@ -90,26 +92,40 @@ with col_btn2:
 
 if search_clicked and cnpj_input:
     # Query using DuckDB
+    search_cnpj = None
     try:
         # Convert input to int for comparison
         search_cnpj = int(cnpj_input)
-        
+
         # Query both parquet parts using wildcard
         query = f"SELECT * FROM 'estabelecimentos_mg_part*.parquet' WHERE CNPJ = {search_cnpj}"
-        
+
         with st.spinner('Consultando base de dados...'):
             # execute query and fetch as dataframe
             con = duckdb.connect(database=':memory:')
             result = con.execute(query).df()
             con.close()
-            
+
     except ValueError:
         st.warning("Por favor, digite apenas números válidos.")
         result = pd.DataFrame()
     except Exception as e:
         st.error(f"Erro na consulta: {e}")
         result = pd.DataFrame()
-    
+
+    # Check if the CNPJ has a registration in Biz Distribuidora's customer database
+    if search_cnpj is not None:
+        cod_cliente, erro_cliente = buscar_codigo_cliente(search_cnpj)
+
+        st.subheader("📇 Cadastro Biz Distribuidora")
+        if erro_cliente:
+            st.error(erro_cliente)
+        elif cod_cliente:
+            st.success(f"Cliente cadastrado — Código: {cod_cliente}")
+        else:
+            st.warning("CNPJ sem cadastro na Biz Distribuidora.")
+        st.markdown("---")
+
     if not result.empty:
         item = result.iloc[0]
         
